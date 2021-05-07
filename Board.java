@@ -12,7 +12,10 @@ public class Board	{
 	// Some ivars are stubbed out for you:
 	private int width;
 	private int height;
-	private boolean[][] grid;
+	private boolean[][] grid, gridCopy;
+	private int [] widths, widthsCopy;
+	private int[] heights, heightsCopy;
+	private int maxHeight, maxHeightCopy;
 	private boolean DEBUG = true;
 	boolean committed;
 	
@@ -27,9 +30,13 @@ public class Board	{
 		this.width = width;
 		this.height = height;
 		grid = new boolean[width][height];
+		gridCopy = new boolean[width][height];
+		widths = new int [height];
+		widthsCopy = new int [height];
+		heights = new int[width];
+		heightsCopy = new int[width];
+		maxHeight = maxHeightCopy = 0;
 		committed = true;
-		
-		// YOUR CODE HERE
 	}
 	
 	
@@ -53,9 +60,7 @@ public class Board	{
 	 Returns the max column height present in the board.
 	 For an empty board this is 0.
 	*/
-	public int getMaxHeight() {	 
-		return 0; // YOUR CODE HERE
-	}
+	public int getMaxHeight() { return maxHeight; }
 	
 	
 	/**
@@ -64,7 +69,26 @@ public class Board	{
 	*/
 	public void sanityCheck() {
 		if (DEBUG) {
-			// YOUR CODE HERE
+			//checking heights
+			int correctMaxHeight = 0;
+			for (int i = 0; i < width; i++){
+				int correctHeight = 0;
+				for (int j = 0; j < height; j++){
+					if (grid[i][j]) correctHeight = Math.max(correctHeight, j + 1);
+				}
+				if (getColumnHeight(i) != correctHeight) throw new RuntimeException("height is not correct");
+				correctMaxHeight = Math.max(correctMaxHeight, correctHeight);
+			}
+			if (correctMaxHeight != getMaxHeight()) throw new RuntimeException("Max height is not correct");
+
+			//checking widths
+			for (int i = 0; i < height; i++){
+				int correctWidth = 0;
+				for (int j = 0; j < width; j++){
+					if (grid[j][i]) correctWidth++;
+				}
+				if (getRowWidth(i) != correctWidth) throw new RuntimeException("width is not correct");
+			}
 		}
 	}
 	
@@ -78,7 +102,18 @@ public class Board	{
 	 to compute this fast -- O(skirt length).
 	*/
 	public int dropHeight(Piece piece, int x) {
-		return 0; // YOUR CODE HERE
+		if (x < 0) return  Board.PLACE_OUT_BOUNDS;
+		int [] pieceSkirt = piece.getSkirt();
+		int res = 0;
+		for (int deltaX = 0; deltaX < pieceSkirt.length; deltaX++){
+			// for every column, (0,x) point will be placed at y = height-skirt of that column
+			// since gravity does not work, we have to find maximum value of height-skirt
+			int deltaY = pieceSkirt[deltaX];
+			int currentX = x + deltaX;
+			if (currentX >= width) return Board.PLACE_OUT_BOUNDS;
+			res = Math.max(heights[currentX] - deltaY, res);
+		}
+		return res;
 	}
 	
 	
@@ -88,7 +123,8 @@ public class Board	{
 	 The height is 0 if the column contains no blocks.
 	*/
 	public int getColumnHeight(int x) {
-		return 0; // YOUR CODE HERE
+		if (x < 0 || x >= width) throw new RuntimeException("x is not in bounds");
+		return heights[x];
 	}
 	
 	
@@ -97,7 +133,8 @@ public class Board	{
 	 the given row.
 	*/
 	public int getRowWidth(int y) {
-		 return 0; // YOUR CODE HERE
+		if (y < 0 || y >= height) throw new RuntimeException("y not in bounds");
+		return widths[y];
 	}
 	
 	
@@ -107,7 +144,8 @@ public class Board	{
 	 always return true.
 	*/
 	public boolean getGrid(int x, int y) {
-		return false; // YOUR CODE HERE
+		if (x >= width || x < 0 || y >= height || y < 0) return true;
+		return grid[x][y];
 	}
 	
 	
@@ -115,7 +153,17 @@ public class Board	{
 	public static final int PLACE_ROW_FILLED = 1;
 	public static final int PLACE_OUT_BOUNDS = 2;
 	public static final int PLACE_BAD = 3;
-	
+
+	private void copyData (){
+		// copying data for uncommitted versions
+		committed = false;
+		System.arraycopy(widths, 0, widthsCopy, 0, widths.length);
+		System.arraycopy(heights, 0, heightsCopy, 0, heights.length);
+		for (int i = 0; i < grid.length; i++){
+			System.arraycopy(grid[i], 0, gridCopy[i], 0, grid[i].length);
+		}
+		maxHeightCopy = maxHeight;
+	}
 	/**
 	 Attempts to add the body of a piece to the board.
 	 Copies the piece blocks into the board grid.
@@ -133,22 +181,74 @@ public class Board	{
 	public int place(Piece piece, int x, int y) {
 		// flag !committed problem
 		if (!committed) throw new RuntimeException("place commit problem");
-			
 		int result = PLACE_OK;
-		
-		// YOUR CODE HERE
-		
+		copyData();
+		TPoint[] pieceBody = piece.getBody();
+		for (int i = 0; i < pieceBody.length; i++){
+			int currX = x + pieceBody[i].x;
+			int currY = y + pieceBody[i].y;
+			if (currX < 0 || currX >= width || currY < 0 || currY >= height) return PLACE_OUT_BOUNDS;
+			if (grid[currX][currY]) return PLACE_BAD;
+			grid[currX][currY] = true;
+			heights[currX] = Math.max(heights[currX], currY + 1);
+			widths[currY]++;
+			if (widths[currY] == width) result = PLACE_ROW_FILLED;
+			maxHeight = Math.max(maxHeight, currY + 1);
+		}
+		sanityCheck();
 		return result;
 	}
-	
-	
+
+	private void clearSingleRow(int row){
+		for (int i = 0; i < grid.length; i++){
+			grid[i][row] = false;
+		}
+	}
+
+	private void moveDownOneRow (int dest, int src){
+		for (int i = 0; i < grid.length; i++){
+			grid[i][dest] = grid[i][src];
+		}
+	}
+
+	private void moveDown(int row){
+		for (int i = row; i < grid[0].length - 1; i++){
+			widths[i] = widths[i + 1];
+			moveDownOneRow(i, i + 1);
+		}
+		clearSingleRow(grid[0].length - 1);
+		widths[widths.length - 1] = 0;
+	}
+
+	private void changeHeights (){
+		maxHeight = 0;
+		for (int i = 0; i < width; i++){
+			int correctHeight = 0;
+			for (int j = 0; j < height; j++){
+				if (grid[i][j]) correctHeight = Math.max(correctHeight, j + 1);
+			}
+			heights[i] = correctHeight;
+			maxHeight = Math.max(maxHeight, correctHeight);
+		}
+	}
+
 	/**
 	 Deletes rows that are filled all the way across, moving
 	 things above down. Returns the number of rows cleared.
 	*/
 	public int clearRows() {
+		if (grid.length == 0) return 0;
 		int rowsCleared = 0;
-		// YOUR CODE HERE
+		if (committed)copyData();
+		committed = false;
+		for (int i = 0; i < widths.length; i++){
+			if (widths[i] == width) {
+				moveDown(i);
+				rowsCleared++;
+				i--; // because we need to visit row, which moved on ith row
+			}
+		}
+		changeHeights();
 		sanityCheck();
 		return rowsCleared;
 	}
@@ -163,7 +263,23 @@ public class Board	{
 	 See the overview docs.
 	*/
 	public void undo() {
-		// YOUR CODE HERE
+		if (committed) return;
+		int[] tmp = widths;
+		widths = widthsCopy;
+		widthsCopy = tmp;
+
+		tmp = heights;
+		heights = heightsCopy;
+		heightsCopy = tmp;
+
+		maxHeight = maxHeightCopy;
+
+		boolean [] []tmpGrid = grid;
+		grid = gridCopy;
+		gridCopy = tmpGrid;
+
+		sanityCheck();
+		committed = true;
 	}
 	
 	

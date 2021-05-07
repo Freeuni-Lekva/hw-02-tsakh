@@ -6,7 +6,7 @@
  We'll allow public access to x/y, so this
  is not an object really.
  */
-public class TPoint {
+public class  TPoint {
 	public int x;
 	public int y;
 

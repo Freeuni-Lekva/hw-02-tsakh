@@ -29,12 +29,43 @@ public class Piece {
 
 	static private Piece[] pieces;	// singleton static array of first rotations
 
+	private void findSkirt(){
+		skirt = new int[width];
+		Arrays.fill(skirt, height); // max y will be height - 1
+		for (int i = 0; i < body.length; i++){
+			TPoint curr = body[i];
+			skirt[curr.x] = Math.min(skirt[curr.x], curr.y);
+		}
+	}
+
 	/**
 	 Defines a new piece given a TPoint[] array of its body.
 	 Makes its own copy of the array and the TPoints inside it.
 	*/
 	public Piece(TPoint[] points) {
-		// YOUR CODE HERE
+		body = new TPoint[points.length];
+		int leftX = -1;
+		int rightX = -1;
+		int lowerY = -1;
+		int upperY = -1;
+		for (int i = 0; i < points.length; i++){
+			if (leftX == -1){
+				leftX = rightX = points[i].x;
+				lowerY = upperY = points[i].y;
+			} else {
+				leftX = Math.min(leftX, points[i].x);
+				rightX = Math.max(rightX, points[i].x);
+
+				lowerY = Math.min(lowerY, points[i].y);
+				upperY = Math.max(upperY, points[i].y);
+			}
+			body[i] = points[i];
+		}
+
+		width = rightX - leftX + 1;
+		height = upperY - lowerY + 1;
+		findSkirt();
+		next = null;
 	}
 	
 
@@ -87,8 +118,15 @@ public class Piece {
 	 rotated from the receiver.
 	 */
 	public Piece computeNextRotation() {
-		// YOUR CODE HERE
-		return null; // YOUR CODE HERE
+		TPoint[] newBody = new TPoint[body.length];
+		for (int i = 0; i < body.length; i++){
+			int newX = height - 1 - body[i].y;
+			int newY = body[i].x;
+			TPoint tmp = new TPoint(newX, newY);
+			newBody[i] = tmp;
+		}
+		Piece newPiece = new Piece(newBody);
+		return newPiece;
 	}
 
 	/**
@@ -119,8 +157,12 @@ public class Piece {
 		// (null will be false)
 		if (!(obj instanceof Piece)) return false;
 		Piece other = (Piece)obj;
-		
-		// YOUR CODE HERE
+		// if one has more points than other
+		List<TPoint> otherBody = Arrays.asList(other.getBody());
+		if (otherBody.size() != body.length) return  false;
+		for(int i = 0; i < body.length; i++){
+			if (!otherBody.contains(body[i])) return false;
+		}
 		return true;
 	}
 
@@ -187,8 +229,19 @@ public class Piece {
 	 to the first piece.
 	*/
 	private static Piece makeFastRotations(Piece root) {
-		// YOUR CODE HERE
-		return null; // YOUR CODE HERE
+		Piece head = root;
+		Piece currNext = null;
+		int i = 0;
+		while (true){
+			currNext = head.computeNextRotation();
+			if (currNext.equals(root)){
+				head.next = root;
+				break;
+			}
+			head.next = currNext;
+			head = currNext;
+		}
+		return root;
 	}
 	
 	
